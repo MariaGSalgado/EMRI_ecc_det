@@ -1,9 +1,43 @@
-# /opt/anaconda3/envs/few_env/bin/python "/Users/mariasalgado/Library/CloudStorage/OneDrive-UniversiteitLeiden/Ambiente de Trabalho/Master's Degree/1st Research Project/Final Analysis/emri_tools/run_det_stats.py"
-# or python run_det_stats.py (if in the environment and folder)
+"""
+Run the semi-coherent likelihood-ratio analysis for data containing an EMRI signal.
 
-# --vals_ef_inj 0 0.01 0.02 0.03 0.04 0.08 0.12 0.16 0.20 0.23 0.232 0.24 --mode_selection threshold --threshold 0.99 --vals_t_sft 172800 --outfile fid_lambda_ef_99_thr.h5
-# --vals_ef_inj 0.04 0.12 0.20 --mode_selection threshold --threshold 0.99 --vals_t_sft 43200 86400 129600 172800 --outfile fid_lambda_Tsft_99_thr.h5
-# --m1 4e6 --m2 10 --a 0 --Tpl 0.9 --vals_ef_inj 0 --mode_selection "fixed modes" --specific_modes 2,0 2,3 2,4 --vals_t_sft 172800 --n_runs 100 --noise --tdi_flag --outfile pop_3_mode_ef_1e-1_noise.h5
+Examples
+--------
+Evaluate a range of injected eccentricities using the modes that account
+for 99% of the total SNR:
+
+    python run_det_stats.py \
+        --vals_ef_inj 0 0.01 0.02 0.03 0.04 0.08 0.12 0.16 0.20 0.23 0.232 0.24 \
+        --mode_selection threshold \
+        --threshold 0.99 \
+        --vals_t_sft 172800 \
+        --outfile fid_lambda_ef_99_thr.h5
+
+Evaluate the dependence on SFT duration:
+
+    python run_det_stats.py \
+        --vals_ef_inj 0.04 0.12 0.20 \
+        --mode_selection threshold \
+        --threshold 0.99 \
+        --vals_t_sft 43200 86400 129600 172800 \
+        --outfile fid_lambda_Tsft_99_thr.h5
+
+Run a noisy injection multiple times using a fixed set of harmonics:
+
+    python run_det_stats.py \
+        --m1 4e6 \
+        --m2 10 \
+        --a 0 \
+        --Tpl 0.9 \
+        --vals_ef_inj 0.1 \
+        --mode_selection "fixed modes" \
+        --specific_modes 2,0 2,3 2,4 \
+        --vals_t_sft 172800 \
+        --n_runs 100 \
+        --noise \
+        --tdi_flag \
+        --outfile pop_3_mode_ef_1e-1_noise.h5
+"""
 
 import numpy as np
 import os

@@ -6,7 +6,10 @@ from gw_signal import get_f_fdot_fddot_back, generate_injection_data
 
 
 def dirichlet_kernel(f_0, T_sft):
-    """The physically correct kernel for the f_1 = 0 case."""
+    """
+    The physically correct kernel for the f_1 = 0 case.
+    """
+
     return T_sft * np.exp(1j * np.pi * f_0 * T_sft) * np.sinc(f_0 * T_sft)
 
 
@@ -49,7 +52,15 @@ def fresnel_kernel(f_0, f_1, T_sft):
 
 def robust_kernel(f_0, f_1, T_sft):
     """
-    This is the function we will call. It computes the forward pass.
+    Computes the forward pass.
+
+    Args:
+        f_0 (float or np.ndarray): Initial frequency.
+        f_1 (float or np.ndarray): Frequency derivative.
+        T_sft (float): Duration of the SFT segment.
+
+    Returns:
+        np.ndarray: Robust kernel values.
     """
     abs_f_1 = np.abs(f_1)
     return np.where(
@@ -65,27 +76,27 @@ def robust_kernel(f_0, f_1, T_sft):
 
 def det_stat(data_sfts, A_alpha, phi_alpha, f_alpha, fdot_alpha, psd, P=100, T_sft=86400.):
     """
-    Compute the detection statistic for a given set of parameters and data.
+    Computes the detection statistic for a given set of parameters and data.
     This function calculates a detection statistic based on the input Short Fourier Transforms (SFTs)
     and signal parameters. It evaluates the likelihood of a signal being present in the data.
+
     Args:
-        data_sfts (jax.numpy.ndarray): The input SFT data, typically a 2D array where the first
+        data_sfts (np.ndarray): The input SFT data, typically a 2D array where the first
             dimension corresponds to frequency bins and the second dimension corresponds to time segments.
-        A_alpha (jax.numpy.ndarray): Amplitude parameters of the signal.
-        phi_alpha (jax.numpy.ndarray): Phase parameters of the signal.
-        f_alpha (jax.numpy.ndarray): Frequency parameters of the signal.
-        fdot_alpha (jax.numpy.ndarray): Frequency derivative parameters of the signal.
-        P (int, optional): The range of frequency bins to consider around the signal frequency.
-            Defaults to 100.
-        T_sft (float, optional): The duration of each SFT segment in seconds. Defaults to 86400 (1 day).
+        A_alpha (np.ndarray): Amplitude parameters of the signal.
+        phi_alpha (np.ndarray): Phase parameters of the signal.
+        f_alpha (np.ndarray): Frequency parameters of the signal.
+        fdot_alpha (np.ndarray): Frequency derivative parameters of the signal.
+        psd (callable): Function that returns PSD values for given frequencies.
+        P (int, optional): The range of frequency bins to consider around the signal frequency (default: 100).
+        T_sft (float, optional): The duration of each SFT segment in seconds (default: 86400 (1 day)).
+
     Returns:
-        float: The detection statistic value, normalized by the square root of the noise-weighted
-        signal power.
-    Notes:
-        - The function uses Fresnel kernels to compute the signal contribution in the frequency domain.
-        - Out-of-range frequency bins are masked to zero to avoid indexing errors.
-        - The detection statistic is computed as the ratio of the matched-filter term (`dh_term`)
-          to the square root of the noise-weighted signal power (`hh_term`).
+        dh_term (np.ndarray): Noise-weighted data-signal inner-product term
+            evaluated for each SFT.
+        hh_term (np.ndarray): Noise-weighted signal self-inner-product term
+            evaluated for each SFT.
+
     """
 
     # Non-signal-dependent values are passed here by clousure
@@ -109,12 +120,28 @@ def det_stat(data_sfts, A_alpha, phi_alpha, f_alpha, fdot_alpha, psd, P=100, T_s
     c_alpha = np.nan_to_num(c_alpha, copy=False, nan=0.0, posinf=0.0, neginf=0.0)
     dh_term = 2 * A_alpha * c_alpha * np.exp(1j * phi_alpha)
     hh_term = T_sft * (A_alpha ** 2 / psd(f_alpha)) / 2
+
     return dh_term, hh_term
 
 
 def compute_log_likelihood(params, t_alpha, data_sfts, T_SFT, psd, modes=[(2, 0)], delta_phi_max=1.0):
     """
-    Compute log-likelihood for EMRI detection statistic considering multiple modes.
+    Computes the log-likelihood for EMRI detection statistic considering multiple modes.
+
+    Args:
+        params (array-like): EMRI parameters in the inference parameterization:
+            [log10(m1), m2, a, Tpl, ef].
+        t_alpha (np.ndarray): Array of SFT time samples in seconds.
+        data_sfts (np.ndarray): Complex SFT data.
+        T_SFT (float): Duration of each SFT segment in seconds.
+        psd (callable): Function that returns PSD values for given frequencies.
+        modes (list of tuple, optional): List of (m, n) harmonic indices to
+            include in the likelihood (default: [(2, 0)]).
+        delta_phi_max (float, optional): Maximum allowed phase error due to
+            the second-order frequency evolution within an SFT (default: 1 radian).
+
+    Returns:
+        float: Log-likelihood value for the supplied parameter set.
     """
 
     # Convert parameters to physical values
@@ -167,6 +194,31 @@ def compute_log_likelihood(params, t_alpha, data_sfts, T_SFT, psd, modes=[(2, 0)
 
 
 def compute_lambda(ef_inj, DEFAULT_INJECTION, T_DATA, T_SFT, DELTA_T, SNR_REF, T_SNR, psd, PARAM_BOUNDS, modes=[(2, 0)], noise=True, seed=42):
+    """
+    Computes the likelihood-ratio detection statistic for eccentricity.
+
+    Args:
+        ef_inj (float): Final eccentricity of the injected EMRI signal.
+        DEFAULT_INJECTION (dict): Dictionary containing the default physical
+            parameters of the EMRI injection.
+        T_DATA (float): Duration of the simulated data in years.
+        T_SFT (float): Duration of each SFT segment in seconds.
+        DELTA_T (float): Sampling interval of the time-domain waveform in seconds.
+        SNR_REF (float): Target SNR to which the injected signal is scaled.
+        T_SNR (float): Duration of the waveform used to determine the reference SNR, in years.
+        psd (callable): Function that returns PSD values for given frequencies.
+        PARAM_BOUNDS (sequence): Parameter bounds used for the likelihood maximization.
+        modes (list of tuple, optional): List of (m, n) harmonic indices included in the likelihood (default: [(2, 0)]).
+        noise (bool, optional): If True, adds a noise realization to the injected signal (default: True).
+        seed (int, optional): Random seed used for the noise generation (default: 42).
+
+    Returns:
+        logL_circ (float): Maximum log-likelihood under the circular hypothesis.
+        logL_ecc (float): Maximum log-likelihood under the eccentric hypothesis.
+        lambda_LR (float): Likelihood-ratio detection statistic.
+        best_params_circ (np.ndarray): Best-fit parameters under the circular hypothesis.
+        best_params_ecc (np.ndarray): Best-fit parameters under the eccentric hypothesis.
+    """
 
     # Generate data with the specified final eccentricity
 

@@ -24,54 +24,36 @@ wave_gen = GenerateEMRIWaveform(
 
 def get_f_fdot_fddot_back(params, t_alpha, err=1e-11):
     """
-    Compute the phase, frequency, and their first and second derivatives for a backward-integrated inspiral trajectory.
+    Computes the phase, frequency, and their first and second derivatives for a backward-integrated inspiral trajectory.
     This function integrates the inspiral trajectory backwards in time, starting from the separatrix, and evaluates the orbital phase,
     frequency, and their derivatives at specified time samples. The results are returned for two harmonics (indices 3 and 5 in the
     trajectory output).
-    Parameters
-    ----------
-    params : np.ndarray
-        Array of shape (N, 6) or (6,) containing the physical parameters for the inspiral:
-        [m1, m2, a, Tpl, e0, x0], where
-            m1 : float
-                Mass of the primary object.
-            m2 : float
-                Mass of the secondary object.
-            a : float
-                Spin parameter.
-            Tpl : float
-                Plunge time (in years).
-            e0 : float
-                Initial eccentricity.
-            x0 : float
-                Initial semi-latus rectum or related parameter.
-    t_alpha : np.ndarray
-        Array of time samples (in seconds) at which to evaluate the phase and frequency quantities.
-    Returns
-    -------
-    phi : np.ndarray
-            Array of shape (2, len(t_alpha)) containing the orbital phases for the two harmonics at each time sample.
-        f : np.ndarray
-            Array of shape (2, len(t_alpha)) containing the frequencies for the two harmonics at each time sample.
-        dotf : np.ndarray
-            Array of shape (2, len(t_alpha)) containing the first derivatives of the frequencies (frequency derivatives) for the two harmonics.
-        dotdotf : np.ndarray
-            Array of shape (2, len(t_alpha)) containing the second derivatives of the frequencies for the two harmonics.
-        Notes
-        -----
-        - The function assumes the existence of global objects and methods such as `traj_gen`, `rhs`, `get_separatrix`, and constants like `YRSID_SI`.
-        - Only the time samples within the valid integration range are populated; others remain zero.
-        - The function is tailored for EMRI (Extreme Mass Ratio Inspiral) waveform modeling and relies on external trajectory and spline evaluation routines.
-        """
+
+    Args:
+        params (np.ndarray): Array of shape (N, 6) or (6,) containing the physical parameters for the inspiral:
+            [m1, m2, a, Tpl, ef, xI], where
+                m1 (float): Mass of the primary object.
+                m2 (float): Mass of the secondary object.
+                a (float): Spin parameter.
+                Tpl (float): Plunge time (in years).
+                ef (float): Final eccentricity (right before plunge).
+                xI (float): Inclination parameter.
+        t_alpha (np.ndarray): Array of time samples (in seconds) at which to evaluate the phase and frequency quantities.
+
+    Returns:
+        phi (np.ndarray): Array of shape (2, len(t_alpha)) containing the orbital phases for the two harmonics at each time sample.
+        f (np.ndarray): Array of shape (2, len(t_alpha)) containing the frequencies for the two harmonics at each time sample.
+        dotf (np.ndarray): Array of shape (2, len(t_alpha)) containing the first derivatives of the frequencies (frequency derivatives) for the two harmonics.
+        dotdotf (np.ndarray): Array of shape (2, len(t_alpha)) containing the second derivatives of the frequencies for the two harmonics.
+    """
 
     # Define ODE flux and parameters
-    m1, m2, a, Tpl, ef, x0 = params.T
-    mass_ratio = m1 * m2 / (m1 + m2) ** 2
+    m1, m2, a, Tpl, ef, xI = params.T
     rhs.add_fixed_parameters(params[0], params[1], a)
 
     # Define max time based on t_alpha
-    p_0 = traj_gen.inspiral_generator.func.separatrix_buffer_dist + get_separatrix(a, ef, x0) + 1e-6
-    backwards_result = traj_gen(m1, m2, a, p_0, ef, x0, T=Tpl, integrate_backwards=True, err=err)
+    p_0 = traj_gen.inspiral_generator.func.separatrix_buffer_dist + get_separatrix(a, ef, xI) + 1e-6
+    backwards_result = traj_gen(m1, m2, a, p_0, ef, xI, T=Tpl, integrate_backwards=True, err=err)
 
     t_int = traj_gen.integrator_spline_t
 
@@ -84,10 +66,6 @@ def get_f_fdot_fddot_back(params, t_alpha, err=1e-11):
     f = np.zeros((2, shape_alpha))
     dotf = np.zeros((2, shape_alpha))
     dotdotf = np.zeros((2, shape_alpha))
-
-    # Time
-    t_adim = t_int * mass_ratio
-    t_alpha_adim = new_t_alpha[mask] * mass_ratio
 
     # Phases
     phi_ = traj_gen.inspiral_generator.eval_integrator_spline(new_t_alpha[mask])
@@ -113,7 +91,31 @@ def get_f_fdot_fddot_back(params, t_alpha, err=1e-11):
 
 
 def get_frequency_evolution(true_values, T_data, T_sft, delta_T):
-    """Compute the frequency evolution of an EMRI signal."""
+    """
+    Computes the frequency and amplitude evolution of an EMRI signal.
+
+    Args:
+        true_values (np.ndarray): Array containing the physical parameters of
+            the EMRI signal used to generate the waveform:
+            [m1, m2, a, Tpl, ef, xI], where
+                m1 (float): Mass of the primary object.
+                m2 (float): Mass of the secondary object.
+                a (float): Spin parameter.
+                Tpl (float): Plunge time (in years).
+                ef (float): Final eccentricity (right before plunge).
+                xI (float): Inclination parameter.
+        T_data (float): Total observation time in years.
+        T_sft (float): Duration of each SFT in seconds.
+        delta_T (float): Sampling interval of the time-domain signal in seconds.
+
+    Returns:
+        t_alpha (np.ndarray): Array of SFT time samples in seconds, corresponding
+            to the start time of each SFT.
+        phi_f_fdot_fddot (tuple): Phase, frequency, first frequency derivative,
+            and second frequency derivative evaluated at the SFT times.
+        amp_alpha (np.ndarray): Array containing the mean instantaneous amplitude
+            of the EMRI signal within each SFT.
+    """
 
     # Generate EMRI signal (only to obtain time array)
     t, hp, hx = create_signal(true_values, T=T_data, delta_T=delta_T)
@@ -134,7 +136,6 @@ def get_frequency_evolution(true_values, T_data, T_sft, delta_T):
     # Truncate to full SFTs only
     n_total = num_sfts * samples_per_sft
 
-    t = t[:n_total]
     amp_td = amp_td[:n_total]
 
     # SFT times
@@ -153,14 +154,15 @@ def get_frequency_evolution(true_values, T_data, T_sft, delta_T):
 
 
 def get_response_generator(T, dt):
-    """Function to obtain the waveform generator with LISA response.
+    """
+    Function to obtain the waveform generator with LISA response.
 
     Args:
-        T (float): Observation time in years
-        dt (float): time step in seconds
+        T (float): Observation time in years.
+        dt (float): Time step in seconds.
 
     Returns:
-        func: Function that takes in the parameters and returns the waveform
+        func: Function that takes in the parameters and returns the waveform.
     """
 
     use_gpu = few.has_backend('gpu')
@@ -173,8 +175,6 @@ def get_response_generator(T, dt):
         orbits=EqualArmlengthOrbits(),
     )
 
-    # With longer signals, we care less about this
-    t0 = 10000.0  # Throw away on both ends when our orbital information is weird
     wave_gen_resp = ResponseWrapper(
         wave_gen,
         T,
@@ -198,43 +198,33 @@ def create_signal(params,
                   randomize=False,
                   resp_gen=True):
     """
-    Generates a gravitational wave signal for an EMRI (Extreme Mass Ratio Inspiral) system using the provided parameters.
+    Generates a gravitational wave signal for an EMRI system using the provided parameters.
 
-    Parameters
-    ----------
-    params : array-like
-        Array or object containing the EMRI system parameters (m1, m2, a, Tpl, ef, x0).
-    dist : float, optional
-        Distance to the source (default: 1.0).
-    qS : float, optional
-        Source sky position polar angle (default: np.pi/3).
-    phiS : float, optional
-        Source sky position azimuthal angle (default: 0.0).
-    qK : float, optional
-        Spin orientation polar angle (default: np.pi/3).
-    phiK : float, optional
-        Spin orientation azimuthal angle (default: 0.0).
-    Phi_phi0 : float, optional
-        Initial phase in the phi direction (default: 0.0).
-    Phi_theta0 : float, optional
-        Initial phase in the theta direction (default: 0.0).
-    Phi_r0 : float, optional
-        Initial phase in the radial direction (default: 0.0).
-    T : float, optional
-        Total duration of the signal (default: 1.0).
-    delta_T : float, optional
-        Time step for the waveform (default: 10.0).
-    eps : float, optional
-        Accuracy parameter for the waveform generation (default: 1e-2).
-    return_params : bool, optional
-        Whether to return the parameters used for the signal generation (default: False).
-    randomize : bool, optional
-        Whether to randomize certain parameters (default: False).
+    Args:
+        params (array-like): Array or object containing the EMRI system parameters (m1, m2, a, Tpl, ef, xI).
+        dist (float, optional): Distance to the source (default: 1.0).
+        qS (float, optional): Source sky position polar angle (default: np.pi/3).
+        phiS (float, optional): Source sky position azimuthal angle (default: 0.0).
+        qK (float, optional): Spin orientation polar angle (default: np.pi/3).
+        phiK (float, optional): Spin orientation azimuthal angle (default: 0.0).
+        Phi_phi0 (float, optional): Initial phase in the phi direction (default: 0.0).
+        Phi_theta0 (float, optional): Initial phase in the theta direction (default: 0.0).
+        Phi_r0 (float, optional): Initial phase in the radial direction (default: 0.0).
+        T (float, optional): Total duration of the signal (default: 1.0).
+        delta_T (float, optional): Time step for the waveform (default: 10.0).
+        eps (float, optional): Accuracy parameter for the waveform generation (default: 1e-2).
+        return_params (bool, optional): Whether to return the parameters used for the signal generation (default: False).
+        randomize (bool, optional): Whether to randomize certain parameters (default: False).
+        resp_gen (bool, optional): Whether to use the response generator to create the signal (default: True).
 
-    Returns
-    -------
-    signal : ndarray
-        h plus and h cross of the gravitational wave signal.
+    Returns:
+        time_vector (np.ndarray): Array of time samples in seconds.
+        hp (np.ndarray): Plus polarization of the gravitational-wave signal.
+        hx (np.ndarray): Cross polarization of the gravitational-wave signal.
+        param_dict (dict): Dictionary containing the parameters used to
+            generate the waveform, including the initial orbital
+            parameters inferred from the backward-integrated trajectory
+            and the updated source distance corresponding to snr_ref.
     """
 
     if randomize:
@@ -246,22 +236,22 @@ def create_signal(params,
         Phi_theta0 = np.random.uniform(0, 2 * np.pi)
         Phi_r0 = np.random.uniform(0, 2 * np.pi)
 
-    m1, m2, a, Tpl, ef, x0 = params.T
+    m1, m2, a, Tpl, ef, xI = params.T
     p_f = traj_gen.inspiral_generator.func.separatrix_buffer_dist + get_separatrix(a, ef, 1.0) + 1e-6
-    backwards_result = traj_gen(m1, m2, a, p_f, ef, x0, T=Tpl, integrate_backwards=True)
+    backwards_result = traj_gen(m1, m2, a, p_f, ef, xI, T=Tpl, integrate_backwards=True)
     p0_true = backwards_result[1][-1]
     e0_true = backwards_result[2][-1]
-    x0_true = backwards_result[3][-1]
+    xI_true = backwards_result[3][-1]
 
     if resp_gen:
         wave_gen_resp = get_response_generator(T, delta_T)
         print("Using response generator")
-        wave_out = wave_gen_resp(m1, m2, a, p0_true, e0_true, x0_true, dist, qS, phiS, qK, phiK, Phi_phi0, Phi_theta0,
+        wave_out = wave_gen_resp(m1, m2, a, p0_true, e0_true, xI_true, dist, qS, phiS, qK, phiK, Phi_phi0, Phi_theta0,
                             Phi_r0, T=T, dt=delta_T, padoutput=True, eps=eps)
         wave_out = wave_out[0] + 1j * wave_out[1]
     else:
         print("Using hp hx generator")
-        wave_out = wave_gen(m1, m2, a, p0_true, e0_true, x0_true, dist, qS, phiS, qK, phiK, Phi_phi0, Phi_theta0,
+        wave_out = wave_gen(m1, m2, a, p0_true, e0_true, xI_true, dist, qS, phiS, qK, phiK, Phi_phi0, Phi_theta0,
                             Phi_r0, T=T, dt=delta_T, padoutput=True, eps=eps)
 
     if few.has_backend('gpu'):
@@ -293,7 +283,9 @@ def generate_noise(signal_length, delta_T, psd):
     Returns:
         np.ndarray: Time-domain noise realization.
     """
+
     frequencies = np.fft.rfftfreq(signal_length, delta_T)
+
     # Variance of the noise in the Fourier domain
     # (the extra 1/2 factor arises because we need to distribute the psd between the real and the imaginary parts of the signal)
     sigma2 = psd(frequencies) * signal_length * delta_T / 4
@@ -302,6 +294,7 @@ def generate_noise(signal_length, delta_T, psd):
         + 1j * np.random.normal(0.0, sigma2**0.5, size=len(frequencies))
     )
     noise_real = np.fft.irfft(n_tilde, n=signal_length) / delta_T
+
     return noise_real
 
 
@@ -309,37 +302,37 @@ def generate_emri_signal_and_sfts(true_values, T_data, T_sft, delta_T, snr_ref, 
     """
     Generate EMRI signal, compute SFTs, and prepare data for analysis.
 
-    Parameters:
-    -----------
-    true_values : np.ndarray
-        EMRI parameters [m1, m2, a, Tpl, ef, x0]
-    T_data : float
-        Total data duration in years
-    T_sft : float
-        SFT duration in seconds
-    delta_T : float
-        Time step in seconds
-    snr_ref : float
-        SNR of the signal with duration T_snr
-    T_snr : float
-        Duration of the signal in years (it must always be bigger than or equal to T_data)
+    Args:
+        true_values (np.ndarray): EMRI parameters [m1, m2, a, Tpl, ef, xI].
+        T_data (float): Total data duration in years.
+        T_sft (float): SFT duration in seconds.
+        delta_T (float): Time step in seconds.
+        snr_ref (float): SNR of the signal with duration T_snr.
+        T_snr (float): Duration of the signal in years (it must always be bigger than or equal to T_data).
+        psd (callable): Function that returns PSD values for given frequencies.
+        noise (bool, optional): Whether to generate noise realization (default: true).
 
     Returns:
-    --------
     dict : Dictionary containing:
-        - 't': trimmed time array
-        - 'signal_sfts': SFTs of the signal
-        - 'noise_sfts': SFTs of noise realization
-        - 'new_noise_sfts': SFTs of second noise realization
-        - 'data_sfts': SFTs of signal + noise
-        - 't_alpha': time samples for SFTs
-        - 'samples_per_sft': number of samples per SFT
-        - 'wind': window function
-        - 'snr_final': final SNR of scaled signal
-        - 'true_phi_f_fdot_fddot': frequency evolution parameters
-        - 'm_hd' : Inner product <h|d> between signal SFTs and data SFTs
-        - 'm_hh' : Inner product <h|h> (signal with itself)
-        - 'm_hn' : Inner product <h|n> between signal SFTs and noise SFTs
+        - data_td: Time-domain data.
+        - param_dict: Dictionary containing the parameters used to
+            generate the waveform, including the initial orbital
+            parameters inferred from the backward-integrated trajectory
+            and the updated source distance corresponding to snr_ref.
+        - t: Trimmed time array.
+        - data_sfts: SFTs of the data (signal + noise).
+        - signal_sfts: SFTs of the signal.
+        - noise_sfts: SFTs of noise realization.
+        - new_noise_sfts: SFTs of second noise realization.
+        - t_alpha: Time samples for SFTs.
+        - samples_per_sft: Number of samples per SFT.
+        - num_sfts: Number of SFTs in the data segment.
+        - wind: Window function.
+        - snr_final: Final SNR of scaled signal.
+        - true_phi_f_fdot_fddot: Frequency evolution parameters.
+        - m_hd : Inner product <h|d> between signal SFTs and data SFTs.
+        - m_hh : Inner product <h|h> (signal with itself).
+        - m_hn : Inner product <h|n> between signal SFTs and noise SFTs.
     """
     # Generate EMRI signal
     t, hp, hx, param_dict = create_signal(true_values, T=T_snr, delta_T=delta_T, return_params=True, randomize=True, resp_gen=noise)
@@ -410,22 +403,27 @@ def generate_injection_data(injection_params, T_DATA, T_SFT, DELTA_T, SNR_REF, T
     """
     Generate simulated EMRI signal and SFT data.
 
-    Parameters
-    ----------
-    injection_params : dict
-        Dictionary with keys: m1, m2, a, Tpl, ef
-    seed : int
-        Random seed for reproducibility
+    Args:
+        injection_params (dict): Dictionary with keys: m1, m2, a, Tpl, ef.
+        T_DATA (float): Total data duration in years.
+        T_SFT (float): SFT duration in seconds.
+        DELTA_T (float): Time step in seconds.
+        SNR_REF (float): SNR of the signal with duration T_snr.
+        T_SNR (float): Duration of the signal in years (it must always be bigger than or equal to T_data).
+        psd (callable): Function that returns PSD values for given frequencies.
+        noise (bool, optional): Whether to generate noise realization (default: true).
+        seed (int, optional): Random seed for reproducibility (default: 42).
 
-    Returns
-    -------
-    dict
-        Dictionary containing:
-        - data_sfts: SFT data (signal + noise)
-        - noise_sfts: Pure noise SFTs
-        - signal_sfts: Pure signal SFTs
-        - t_alpha: Time array
-        - true_params: Array of true parameters [log10(m1), m2, a, Tpl, ef]
+    Returns:
+        dict: Dictionary containing:
+            - data_sfts: SFT data (signal + noise)
+            - noise_sfts: Pure noise SFTs
+            - signal_sfts: Pure signal SFTs
+            - t_alpha: Time array
+            - true_params: Array of true parameters [log10(m1), m2, a, Tpl, ef]
+            - injection_dict (dict): Full dictionary returned by the signal
+                generation routine, containing the generated injection
+                data and associated quantities.
     """
     np.random.seed(seed)
 
@@ -436,7 +434,7 @@ def generate_injection_data(injection_params, T_DATA, T_SFT, DELTA_T, SNR_REF, T
         injection_params['a'],
         injection_params['Tpl'],
         injection_params['ef'],
-        1.0  # x0 scaling factor
+        1.0  # xI
     ])
 
     # Generate signal and SFTs

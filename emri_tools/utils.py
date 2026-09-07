@@ -6,6 +6,21 @@ import os
 
 
 def load_hdf5(filepath):
+    """
+    Loads likelihood and parameter-estimation results from an HDF5 file.
+
+    Args:
+        filepath (str): Path to the HDF5 file containing the results.
+
+    Returns:
+        pd.DataFrame: DataFrame containing one row per run. Columns include
+            the injected eccentricity, SFT duration, run number, selected
+            modes, circular and eccentric maximum log-likelihoods, the
+            likelihood-ratio statistic, and the best-fit parameters under
+            both hypotheses.
+    """
+
+
     rows = []
 
     with h5py.File(filepath, "r") as h5f:
@@ -60,10 +75,10 @@ def load_hdf5(filepath):
 
 def load_psd(tdi_flag):
     """
-    Load and return a Power Spectral Density (PSD) as a cubic spline.
+    Loads and returns a Power Spectral Density (PSD) as a cubic spline.
 
     Args:
-        tdi_flag (bool): If True, use the TDI PSD. Otherwise, use the standard LISA PSD.
+        tdi_flag (bool): If True, uses the TDI PSD. Otherwise, uses the standard LISA PSD.
 
     Returns:
         cs_eval (scipy.interpolate.CubicSpline): A callable spline function representing the PSD.
@@ -89,6 +104,10 @@ def load_psd(tdi_flag):
 
 
 class PSD:
+    """
+    Callable Power Spectral Density model.
+    """
+
     def __init__(self, tdi_flag=False):
         self.cs_eval = load_psd(tdi_flag)
 
@@ -101,7 +120,7 @@ class PSD:
 
 def compute_sfts(data, delta_T, wind, samples_per_sft):
     """
-    Compute SFTs for the given data.
+    Computes SFTs for the given data.
 
     Args:
         data (np.ndarray): Input time-domain data.
@@ -112,6 +131,7 @@ def compute_sfts(data, delta_T, wind, samples_per_sft):
     Returns:
         np.ndarray: SFTs with shape (num_freq_bins, num_sfts).
     """
+
     num_sfts = data.size // samples_per_sft
     sfts = (
         delta_T
@@ -134,13 +154,14 @@ def sft_inner_product(sft1, sft2, freq, psd):
     Returns:
         np.ndarray: Inner product of the two SFTs.
     """
+
     df = freq[1] - freq[0]
     return 4 * np.sum(sft1.conj() * sft2 / psd(freq)[:, None] * df, axis=0).real
 
 
 def get_snr(signal, delta_T, psd):
     """
-    Compute the signal-to-noise ratio (SNR) of a time-domain signal.
+    Computes the signal-to-noise ratio (SNR) of a time-domain signal.
 
     Args:
         signal (np.ndarray): Time-domain signal array.

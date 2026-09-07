@@ -7,7 +7,28 @@ from few.utils.constants import MRSUN_SI
 
 
 def compute_trajectory(m1, m2, a, Tpl, e_f, xI, traj_gen):
-    """Computes the inspiral trajectory for an EMRI."""
+    """
+    Computes the backward-integrated inspiral trajectory of an EMRI.
+
+    Args:
+        m1 (float): Mass of the primary object.
+        m2 (float): Mass of the secondary object.
+        a (float): Spin parameter.
+        Tpl (float): Plunge time (in years).
+        e_f (float): Final eccentricity (right before plunge).
+        xI (float): Inclination parameter.
+        traj_gen: Trajectory generator.
+
+    Returns:
+        dict: Dictionary containing the backward-integrated inspiral trajectory:
+            t: Time array in seconds.
+            p: Semi-latus rectum as a function of time.
+            e: Eccentricity as a function of time.
+            xI: Inclination parameter as a function of time.
+            Phi_phi: Azimuthal orbital phase as a function of time.
+            Phi_theta: Polar orbital phase as a function of time.
+            Phi_r: Radial orbital phase as a function of time.
+    """
 
     # Determine final semi-latus rectum
     p_f = traj_gen.inspiral_generator.func.separatrix_buffer_dist + get_separatrix(a, e_f, xI) + 1e-6
@@ -27,7 +48,29 @@ def compute_trajectory(m1, m2, a, Tpl, e_f, xI, traj_gen):
 
 
 def compute_modes(a, p, e, xI, theta, phi, amp_gen, ylm_gen, specific_modes=None):
-    """Computes the Teukolsky amplitudes and corresponding spherical harmonics for each (l, m, n) mode."""
+    """
+    Computes the Teukolsky amplitudes and corresponding spherical harmonics for each (l, m, n) mode.
+
+    Args:
+        a (float): Dimensionless spin parameter of the primary object.
+        p (np.ndarray): Semi-latus rectum along the inspiral trajectory.
+        e (np.ndarray): Eccentricity along the inspiral trajectory.
+        xI (np.ndarray): Inclination parameter along the inspiral trajectory.
+        theta (float): Polar angle at which the spherical harmonics are evaluated.
+        phi (float): Azimuthal angle at which the spherical harmonics are evaluated.
+        amp_gen: Teukolsky amplitude generator.
+        ylm_gen: Spherical harmonic generator.
+        specific_modes (optional): Specification of the (l, m, n) modes for
+            which the Teukolsky amplitudes should be computed. If None, the
+            default set of modes defined by `amp_gen` is used.
+
+    Returns:
+        teuk_modes (np.ndarray): Teukolsky amplitudes for the selected
+            (l, m, n) modes along the inspiral trajectory.
+        ylms (np.ndarray): Spin-weighted spherical harmonics corresponding to
+            the (l, m) components of the Teukolsky modes, reordered to match
+            the mode ordering of `teuk_modes`.
+    """
 
     # Get amplitudes along trajectory
     teuk_modes = amp_gen(a, p, e, xI, specific_modes=specific_modes)
@@ -39,7 +82,28 @@ def compute_modes(a, p, e, xI, theta, phi, amp_gen, ylm_gen, specific_modes=None
 
 
 def mode_energy_inspiral(m1, m2, a, Tpl, e_f, xI, theta_K, phi_K, traj_gen, amp_gen, ylm_gen):
-    """Computes the energy of each (m,n) mode summed over the full inspiral, normalized by the sum over all the modes."""
+    """
+    Computes the energy of each (m,n) mode summed over the full inspiral, normalized by the sum over all the modes.
+
+    Args:
+        m1 (float): Mass of the primary object.
+        m2 (float): Mass of the secondary object.
+        a (float): Spin parameter.
+        Tpl (float): Plunge time (in years).
+        e_f (float): Final eccentricity (right before plunge).
+        xI (float): Inclination parameter.
+        theta_K (float): Polar angle specifying the spin orientation.
+        phi_K (float): Azimuthal angle specifying the spin orientation.
+        traj_gen: Trajectory generator.
+        amp_gen: Teukolsky amplitude generator.
+        ylm_gen: Spherical harmonic generator.
+
+    Returns:
+        mn_list (np.ndarray): Array of shape (N_modes, 2) containing the
+            (m, n) indices of the modes included.
+        rel_mode_energy_insp (np.ndarray): Relative energy contribution of each (m, n) mode
+            over the full inspiral.
+    """
 
     # Compute trajectory of the smaller body: p(t), e(t), xI(t), Phi_phi(t), Phi_theta(t), Phi_r(t)
     out = compute_trajectory(m1, m2, a, Tpl, e_f, xI, traj_gen)
@@ -96,7 +160,28 @@ def mode_energy_inspiral(m1, m2, a, Tpl, e_f, xI, theta_K, phi_K, traj_gen, amp_
 
 
 def mode_snr2_inspiral(m1, m2, a, Tpl, e_f, xI, dist, theta_K, phi_K, psd, traj_gen, amp_gen, ylm_gen):
-    """Computes the SNR^2 of each (m,n) mode along the inspiral."""
+    """
+    Computes the SNR^2 of each (m,n) mode along the inspiral.
+
+    Args:
+        m1 (float): Mass of the primary object.
+        m2 (float): Mass of the secondary object.
+        a (float): Spin parameter.
+        Tpl (float): Plunge time (in years).
+        e_f (float): Final eccentricity (right before plunge).
+        xI (float): Inclination parameter.
+        dist(float): Distance to the source (in Gpc).
+        theta_K (float): Polar angle specifying the spin orientation.
+        phi_K (float): Azimuthal angle specifying the spin orientation.
+        psd (callable): Function that returns PSD values for given frequencies.
+        traj_gen: Trajectory generator.
+        amp_gen: Teukolsky amplitude generator.
+        ylm_gen: Spherical harmonic generator.
+
+    Returns:
+        mn_list (np.ndarray): Array of shape (N_modes, 2) containing the (m, n) indices of the modes included.
+        mode_snr2 (np.ndarray): SNR^2 accumulated over the full inspiral for each (m, n) mode.
+    """
 
     # Compute trajectory of the smaller body: p(t), e(t), xI(t), Phi_phi(t), Phi_theta(t), Phi_r(t)
     out = compute_trajectory(m1, m2, a, Tpl, e_f, xI, traj_gen)
@@ -159,7 +244,28 @@ def mode_snr2_inspiral(m1, m2, a, Tpl, e_f, xI, dist, theta_K, phi_K, psd, traj_
 
 
 def find_total_snr(m1, m2, a, Tpl, e_f, xI, dist, theta_K, phi_K, psd, traj_gen, amp_gen, ylm_gen):
-    """Computes the total SNR for a given inspiral."""
+    """
+    Computes the total SNR for a given inspiral.
+
+
+    Args:
+        m1 (float): Mass of the primary object.
+        m2 (float): Mass of the secondary object.
+        a (float): Spin parameter.
+        Tpl (float): Plunge time (in years).
+        e_f (float): Final eccentricity (right before plunge).
+        xI (float): Inclination parameter.
+        dist(float): Distance to the source (in Gpc).
+        theta_K (float): Polar angle specifying the spin orientation.
+        phi_K (float): Azimuthal angle specifying the spin orientation.
+        psd (callable): Function that returns PSD values for given frequencies.
+        traj_gen: Trajectory generator.
+        amp_gen: Teukolsky amplitude generator.
+        ylm_gen: Spherical harmonic generator.
+
+    Returns:
+        total_snr: Total SNR for a given inspiral.
+    """
 
     mn_list, mode_snr2 = mode_snr2_inspiral(m1, m2, a, Tpl, e_f, xI, dist, theta_K, phi_K, psd, traj_gen, amp_gen, ylm_gen)
     total_snr = np.sqrt(mode_snr2.sum())
@@ -167,8 +273,38 @@ def find_total_snr(m1, m2, a, Tpl, e_f, xI, dist, theta_K, phi_K, psd, traj_gen,
 
 
 def find_relevant_modes(m1, m2, a, Tpl, e_f, xI, dist, theta_K, phi_K, psd, threshold_snr, traj_gen, amp_gen, ylm_gen):
-    """Finds the modes that make up a certain threshold on the total SNR
-    and computes the respective weights, individual and joint SNR."""
+    """
+    Finds the modes that make up a certain threshold on the total SNR
+    and computes the respective weights, individual and joint SNR.
+
+
+    Args:
+        m1 (float): Mass of the primary object.
+        m2 (float): Mass of the secondary object.
+        a (float): Spin parameter.
+        Tpl (float): Plunge time (in years).
+        e_f (float): Final eccentricity (right before plunge).
+        xI (float): Inclination parameter.
+        dist(float): Distance to the source (in Gpc).
+        theta_K (float): Polar angle specifying the spin orientation.
+        phi_K (float): Azimuthal angle specifying the spin orientation.
+        psd (callable): Function that returns PSD values for given frequencies.
+        threshold_snr (float): SNR threshold to select the modes.
+        traj_gen: Trajectory generator.
+        amp_gen: Teukolsky amplitude generator.
+        ylm_gen: Spherical harmonic generator.
+
+    Returns:
+        selected_modes (np.ndarray): Array of shape (N_selected, 2)
+            containing the (m, n) indices of the selected modes, ordered
+            by decreasing contribution to the total SNR^2.
+        selected_weights (np.ndarray): Array of shape (N_selected,)
+            containing the relative SNR^2 contribution of each selected
+            mode, normalized by the total SNR^2.
+        selected_snr (np.ndarray): Array of shape (N_selected,) containing
+            the individual SNR of each selected mode.
+        total_snr (float): Total SNR of the signal.
+        """
 
     mn_list, mode_snr2 = mode_snr2_inspiral(m1, m2, a, Tpl, e_f, xI, dist, theta_K, phi_K, psd, traj_gen, amp_gen, ylm_gen)
 
