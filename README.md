@@ -15,8 +15,8 @@ This repository contains the numerical pipeline developed for the study of eccen
 This project requires Python 3 and the following Python packages:
 
 - [FastEMRIWaveforms (FEW)](https://github.com/BlackHolePerturbationToolkit/FastEMRIWaveforms)
-- [FastLISAResponse](https://github.com/BlackHolePerturbationToolkit/FastLISAResponse)
-- [LISA Analysis Tools](https://github.com/BlackHolePerturbationToolkit/LISA-Analysis-Tools)
+- [FastLISAResponse](https://github.com/mikekatz04/lisa-on-gpu/tree/master)
+- [LISA Analysis Tools](https://github.com/lisa-analysis-tools/lisa-analysis-tools)
 - NumPy
 - SciPy
 - multiprocess
@@ -25,4 +25,4 @@ This project requires Python 3 and the following Python packages:
 - matplotlib
 
 The analysis also uses tools from the
-[EMRI Search repository](<EMRI-SEARCH-REPOSITORY-URL>).
+[EMRI Search repository](https://github.com/lorenzsp/EMRI-Search).
