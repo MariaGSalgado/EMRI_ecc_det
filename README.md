@@ -26,3 +26,7 @@ This project requires Python 3 and the following Python packages:
 
 The analysis also uses tools from the
 [EMRI Search repository](https://github.com/lorenzsp/EMRI-Search).
+
+## Citation
+
+If you use this code, please cite the paper:
