@@ -29,4 +29,16 @@ The analysis also uses tools from the
 
 ## Citation
 
-If you use this code, please cite the paper: https://arxiv.org/abs/2611.15736
+If you use this code, please cite the paper: 
+
+```bibtex
+@misc{salgado2026eccentricitydetectabilityextrememassratio,
+      title={Eccentricity detectability in Extreme Mass-Ratio Inspirals}, 
+      author={Maria Gonçalves Salgado and Lorenzo Speri and Elena M. Rossi},
+      year={2026},
+      eprint={2611.15736},
+      archivePrefix={arXiv},
+      primaryClass={gr-qc},
+      url={https://arxiv.org/abs/2611.15736}, 
+}
+```
