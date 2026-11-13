@@ -29,4 +29,4 @@ The analysis also uses tools from the
 
 ## Citation
 
-If you use this code, please cite the paper:
+If you use this code, please cite the paper: (https://arxiv.org/abs/2611.15736)
